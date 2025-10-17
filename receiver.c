@@ -9,15 +9,7 @@ void receive(message_t* message_ptr, mailbox_t* mailbox_ptr){
         1. Use flag to determine the communication method
         2. According to the communication method, receive the message
     */
-    static sem_t *receiver_sem;
-    static sem_t *sender_sem;
-    if (receiver_sem == NULL){
-        receiver_sem = sem_open("/receiver_sem", O_CREAT, 0666, 0); //the name of semaphore 一定要是/ slash 開頭      
-    }
-    if (!sender_sem){
-        sender_sem = sem_open("/sender_sem", O_CREAT, 0666,0);
-    }
-    
+
     // (1) 判斷模式
     if (mailbox_ptr->flag == MSG_PASSING){
         static int msqid = -1; // sys V msg queue id 
@@ -72,8 +64,7 @@ void receive(message_t* message_ptr, mailbox_t* mailbox_ptr){
             printf(WHITE "%s", message_ptr->msgText);
         }
     }
-    sem_post(sender_sem);
-    sem_wait(receiver_sem);
+
 }
 
 int main(int argc, char* argv[]){
@@ -92,19 +83,29 @@ int main(int argc, char* argv[]){
     //calculate the time for receiving 
     struct timespec start, end;
     double time_taken = 0;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+        static sem_t *receiver_sem;
+    static sem_t *sender_sem;
+    if (receiver_sem == NULL){
+        receiver_sem = sem_open("/receiver_sem", O_CREAT, 0666, 0); //the name of semaphore 一定要是/ slash 開頭      
+    }
+    if (!sender_sem){
+        sender_sem = sem_open("/sender_sem", O_CREAT, 0666,0);
+    }
+    
 
 
     while(1){
+        clock_gettime(CLOCK_MONOTONIC, &start);
         receive(msg, mailbox);
-        // sem_post(sender_sem);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        time_taken += (end.tv_sec-start.tv_sec) +(end.tv_nsec-start.tv_nsec)*1e-9;
+        sem_post(sender_sem);
         if (!strcmp(msg->msgText, "exit")){
             break;
         }
-        // sem_wait(receiver_sem);
+        sem_wait(receiver_sem);
     }
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    time_taken += (end.tv_sec-start.tv_sec) +(end.tv_nsec-start.tv_nsec)*1e-9;
+
 
 
     printf(RED "\nSender exit!\n");

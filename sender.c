@@ -12,15 +12,6 @@ void send(message_t message, mailbox_t* mailbox_ptr){
     */
 
     // (1) 
-    //用static 確保只會宣告一次, btw sem 跟 mutex 在運作上不太一樣，所以要用兩個semaphore設定 
-    static sem_t *receiver_sem;
-    static sem_t *sender_sem;
-    if (receiver_sem == NULL){
-        receiver_sem = sem_open("/receiver_sem", O_CREAT, 0666, 0); //the name of semaphore 一定要是/ slash 開頭      
-    }
-    if (!sender_sem){
-        sender_sem = sem_open("/sender_sem", O_CREAT, 0666,0);
-    }
 
     if (mailbox_ptr->flag == MSG_PASSING){
         // static mqd_t msg_queue_fd  = -1;, posix does not work
@@ -81,9 +72,6 @@ void send(message_t message, mailbox_t* mailbox_ptr){
 
     }
 
-
-    sem_post(receiver_sem);
-    sem_wait(sender_sem);
 }
 
 int main(int argc, char* argv[]){
@@ -111,21 +99,33 @@ int main(int argc, char* argv[]){
     //calculate the time
     struct timespec start, end;
     double time_taken = 0;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    //用static 確保只會宣告一次, btw sem 跟 mutex 在運作上不太一樣，所以要用兩個semaphore設定 
+    static sem_t *receiver_sem;
+    static sem_t *sender_sem;
+    if (receiver_sem == NULL){
+        receiver_sem = sem_open("/receiver_sem", O_CREAT, 0666, 0); //the name of semaphore 一定要是/ slash 開頭      
+    }
+    if (!sender_sem){
+        sender_sem = sem_open("/sender_sem", O_CREAT, 0666,0);
+    }
 
     //read all message to be sent
     while(fgets(msg->msgText, sizeof(msg->msgText), file_ptr)){
+        clock_gettime(CLOCK_MONOTONIC, &start);
         send(*msg, mailbox);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        time_taken += (end.tv_sec-start.tv_sec) +(end.tv_nsec-start.tv_nsec)*1e-9;
+        sem_post(receiver_sem);
+        sem_wait(sender_sem);
     }
 
     //the last exit message to receiver 
     strcpy(msg->msgText, "exit");
     send(*msg, mailbox);
-    
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    // sem_post(receiver_sem);
-    // sem_wait(sender_sem);
-    time_taken += (end.tv_sec-start.tv_sec) +(end.tv_nsec-start.tv_nsec)*1e-9;
+
+    sem_post(receiver_sem);
+    sem_wait(sender_sem);
+
 
     printf(RED "\nEnd of input file! exit!\n");
     printf("Total time taken in sending msg: %f s", time_taken);
