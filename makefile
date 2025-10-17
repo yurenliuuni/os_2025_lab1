@@ -1,4 +1,4 @@
-CC := gcc
+CC := gcc 
 override CFLAGS += -O3 -Wall
 
 SOURCE1 := sender.c

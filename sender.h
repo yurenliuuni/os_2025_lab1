@@ -28,6 +28,7 @@ typedef struct {
     /*  TODO: 
         Message structure for wrapper
     */
+   
     long mType;
     char msgText[1024];
 } message_t;
